@@ -6,7 +6,7 @@
 # (meant to be cat -v'd)
 
 i=0
-while [[ $i -lt 25 ]]
+while [[ $i -lt 26 ]]
 do
 	j=0
 	while [[ $j -lt 10 ]]

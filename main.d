@@ -2,16 +2,26 @@ import std.stdio;
 import std.conv;
 import std.typecons;
 import std.process;
+import std.random;
 import core.thread;
+
+
+import core.sys.posix.signal;
+bool gotSignal = false;
+extern(C) void handler(int num) nothrow @nogc @system
+{
+    gotSignal = true;
+}
+
+
+import escapes;
 
 alias Canvas= ubyte[][];
 alias Dimensions=Tuple!(int, "cols", int, "lines");
 
 // (handpicked) terminal colors, from coldest to warmest
 ubyte[16] colors = [ 0, 52, 88, 124, 196, 202, 215, 220, 222, 226, 227, 228, 229, 230, 195, 231 ];
-// values filled by fillColorEscapes()
-string[16] colorEscapes;
-string terminatorEscape; 
+
 
 Dimensions getWindowSize()
 {
@@ -31,29 +41,6 @@ Dimensions getWindowSize()
 	return d;
 }
 
-/**
- * calls tput setab on each number to find out the escape code
- */
-string[] getColorEscapes(int[] numbers)
-{
-	// maybe tput setb would be better ?
-	// not sure honestly..
-
-	string[] result;
-	result.length = numbers.length;
-
-	for (int i=0 ; i<numbers.length; i++)
-	{
-		string command = "tput setab";
-		command ~= to!string(numbers[i]);
-		auto sh = pipeShell(command, Redirect.stdout);
-		wait(sh.pid);
-		result[i] = to!string(sh.stdout.byLine().front);
-		sh.stdout.close();
-	}
-	return result;
-}
-
 
 
 
@@ -62,32 +49,50 @@ void updateCanvas(Canvas previousState, int decayFactor)
 
 }
 
+
 void renderCanvas(Canvas state)
 {
+	write(Keys.eraseDisplay);
 	for (int l=0 ; l<state.length;l++)
 	{
-		for (int c=0 ; c<state[0].length;c++)
+		write(Keys.cursorAt(to!short(l),to!short(0)));
+		for (int c=0 ; c<state[l].length;c++)
 		{
+			if (state[l][c] != 0)
+			{
+				//write("0");
+				write(Keys.colorBG[colors[state[l][c]]]~"a"~Keys.terminator);
+			}
+			else
+				write(Keys.cursorR);
 		}
 	}
+	stdout.flush();
 
 }
 
 
 void main(string[] args)
 {
-	
-	//set-up
-	//wait(spawnShell("tput smcup"));
-
-	// http://fabiensanglard.net/timer_and_framerate/
-
 	// you might also wonder, why not catch SIGWINCH ?
 	// take a wild guess as to how much attention signal handling got
 	// in the stdlib :)
 	auto oldDims = getWindowSize();
-	Canvas canvas;
+	
+	Keys.discover();
+	
+	auto rnd = Random(unpredictableSeed);
+	
+	
+	//set-up
+	write(Keys.cursorInvisible, Keys.alternateScreenOn);
 
+
+
+
+	
+	// initialize canvas
+	Canvas canvas;
 	canvas.length = oldDims.lines;
 	for (int l=0 ; l<oldDims.lines;l++)
 	{
@@ -96,14 +101,28 @@ void main(string[] args)
 			canvas[l][c] = 0;
 	}
 	for (int c=0 ; c<oldDims.cols;c++)
-		canvas[canvas.length-1][c]=colors.length;
+		canvas[canvas.length-1][c]=colors.length-1;
 
+	
 
-	writeln(canvas.length, " ", canvas[0].length, " ", canvas[canvas.length-1][0]);
-
-	//Thread.sleep(dur!("seconds")(2));
+	
+	// http://fabiensanglard.net/timer_and_framerate/
+	
+	auto nextUpdate = MonoTime.currTime;
+	while (true)
+	{
+		if (gotSignal)
+			break;
+		
+		if (MonoTime.currTime <= nextUpdate)
+		{
+			nextUpdate+=dur!("msecs")(100); // 16 FPS
+			updateCanvas(canvas, 1);
+		}
+		renderCanvas(canvas);
+	}
 
 
 	// clean-up
-	//wait(spawnShell("tput rmcup"));
+	write(Keys.cursorNormal, Keys.alternateScreenOff);
 }
