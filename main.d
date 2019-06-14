@@ -9,16 +9,9 @@ alias Dimensions=Tuple!(int, "cols", int, "lines");
 
 // (handpicked) terminal colors, from coldest to warmest
 ubyte[16] colors = [ 0, 52, 88, 124, 196, 202, 215, 220, 222, 226, 227, 228, 229, 230, 195, 231 ];
-
-void updateCanvas(Canvas previousState)
-{
-
-}
-
-void renderCanvas(Canvas state)
-{
-
-}
+// values filled by fillColorEscapes()
+string[16] colorEscapes;
+string terminatorEscape; 
 
 Dimensions getWindowSize()
 {
@@ -37,6 +30,49 @@ Dimensions getWindowSize()
 	cpid.stdout.close(); lpid.stdout.close();
 	return d;
 }
+
+/**
+ * calls tput setab on each number to find out the escape code
+ */
+string[] getColorEscapes(int[] numbers)
+{
+	// maybe tput setb would be better ?
+	// not sure honestly..
+
+	string[] result;
+	result.length = numbers.length;
+
+	for (int i=0 ; i<numbers.length; i++)
+	{
+		string command = "tput setab";
+		command ~= to!string(numbers[i]);
+		auto sh = pipeShell(command, Redirect.stdout);
+		wait(sh.pid);
+		result[i] = to!string(sh.stdout.byLine().front);
+		sh.stdout.close();
+	}
+	return result;
+}
+
+
+
+
+void updateCanvas(Canvas previousState, int decayFactor)
+{
+
+}
+
+void renderCanvas(Canvas state)
+{
+	for (int l=0 ; l<state.length;l++)
+	{
+		for (int c=0 ; c<state[0].length;c++)
+		{
+		}
+	}
+
+}
+
 
 void main(string[] args)
 {
