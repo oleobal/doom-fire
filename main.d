@@ -13,11 +13,12 @@ import core.atomic;
 
 import core.stdc.signal;
 __gshared bool gotSigint = false;
+__gshared FILE* stdinFP;
 extern(C) void handleSigint(int sig) nothrow @nogc @system
 {
-    gotSigint = true;
+	fclose(stdinFP);
+	gotSigint = true;
 }
-
 bool bugMode = false;
 
 
@@ -206,6 +207,17 @@ Switches:
 	for (int c=0 ; c<dims.cols;c++)
 		canvas[canvas.length-1][c]=temperatures.length-1;
 
+	
+	shared bool keepSourceGoing = true;
+	
+	auto listenToStdinThread = new Thread({
+		stdinFP = stdin.getFP();
+		while(!gotSigint && !stdin.eof()) {
+			stdin.rawRead(new char[1]);
+			atomicOp!"^="(keepSourceGoing,true);
+		}
+		//stdin.close();
+	}).start();
 	
 	
 	// avoid getWindowSize() on the main thread
