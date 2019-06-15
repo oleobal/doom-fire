@@ -42,9 +42,10 @@ struct Keys
 		 *
 		 * go read man 5 terminfo
 		 *
-		 * from what I can gather, it is possible to initialize static members with functions,
-		 * but only at compile time (so if the function can go through CTFE).
-		 * well it's only a theory, either that or DMD has one more bug.
+		 * from what I can gather, it is possible to initialize static
+		 * members with functions, but only at compile time (so if the
+		 * function can go through CTFE). Well, it's only a theory;
+		 * either that or DMD has one more bug.
 		 */
 		void discover()
 		{

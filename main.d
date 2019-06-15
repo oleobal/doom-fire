@@ -7,6 +7,7 @@ Random rnd;
 import std.algorithm.comparison;
 import std.concurrency;
 import core.thread;
+import core.atomic;
 
 
 import core.stdc.signal;
@@ -72,14 +73,13 @@ void updateCanvas(Canvas canvas, Dimensions area, bool keepSourceGoing, int deca
 	}
 	
 
-	for (int c=0 ; c<area.cols;c++)
-	{
-		if (keepSourceGoing)
-			canvas[canvas.length-1][c] = temperatures.length-1;
-		else
-			canvas[canvas.length-1][c] = temperatures[0];
-	}
+
+	if (keepSourceGoing)
+		canvas[canvas.length-1][] = temperatures.length-1;
+	else
+		canvas[canvas.length-1][] = 0;
 	
+
 	for (int l=0 ; l<canvas.length-1;l++)
 	{
 		for (int c=0 ; c<canvas[l].length;c++)
@@ -111,7 +111,7 @@ void renderCanvas(Canvas canvas, Dimensions area)
 }
 
 
-void main(string[] args)
+int main(string[] args)
 {
 	short timeslice = 66; // in ms
 	short decayMod = 0;
@@ -130,7 +130,7 @@ Options:
 Switches:
   --debug     :  Output debug info to stderr
   --help,  -h :  Display this help`);
-			return;
+			return 0;
 		}
 		if (args[i] == "--speed" || args[i] == "-s")
 		{
@@ -164,27 +164,51 @@ Switches:
 	
 
 	// initialize canvas
-	auto oldDims = getWindowSize();
+	shared Dimensions dims = getWindowSize();
+	
 	Canvas canvas;
-	canvas.length = oldDims.lines;
-	for (int l=0 ; l<oldDims.lines;l++)
+	canvas.length = dims.lines;
+	for (int l=0 ; l<dims.lines;l++)
 	{
-		canvas[l].length = oldDims.cols;
-		for (int c=0 ; c<oldDims.cols;c++)
+		canvas[l].length = dims.cols;
+		for (int c=0 ; c<dims.cols;c++)
 			canvas[l][c] = 0;
 	}
-	for (int c=0 ; c<oldDims.cols;c++)
+	for (int c=0 ; c<dims.cols;c++)
 		canvas[canvas.length-1][c]=temperatures.length-1;
 
 	
-
+	
+	// avoid getWindowSize() on the main thread
+	auto windowSizeThread = new Thread({
+		while(!gotSigint) {
+			Dimensions d = getWindowSize();
+			if (d != dims)
+				//atomicStore(dims, d); // my code is radioactive
+				// OK so the above doesn't work.
+				// Why ?
+				// No. Fucking. Clue.
+				// maybe cause Tuple is a pointer type ? Idk.
+				// https://www.mail-archive.com/digitalmars-d-bugs@puremagic.com/msg75050.html
+				
+				// it's not really a problem though, I don't need atomic
+				// operations, simply because this thread is the only
+				// one writing on this piece of data.
+				atomicStore(dims.lines, d.lines);
+				atomicStore(dims.cols, d.cols);
+		}
+	}).start();
 	
 	// http://fabiensanglard.net/timer_and_framerate/
 	
+	
+	
 	auto nextUpdate = MonoTime.currTime;
+	/// keeps the window size consistent within a loop
+	Dimensions area;
 	while (!gotSigint)
 	{
-		auto area = getWindowSize();
+		area = dims;
 		if (MonoTime.currTime >= nextUpdate)
 		{
 			nextUpdate+=dur!("msecs")(timeslice);
@@ -194,4 +218,5 @@ Switches:
 	}
 	
 	write(Keys.terminator,Keys.cursorAt(0,0), Keys.cursorNormal, Keys.alternateScreenOff);
+	return 0;
 }
