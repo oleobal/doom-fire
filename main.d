@@ -13,10 +13,8 @@ import core.atomic;
 
 import core.stdc.signal;
 __gshared bool gotSigint = false;
-__gshared FILE* stdinFP;
 extern(C) void handleSigint(int sig) nothrow @nogc @system
 {
-	fclose(stdinFP);
 	gotSigint = true;
 }
 bool bugMode = false;
@@ -145,6 +143,7 @@ int main(string[] args)
 	short timeslice = 66; // in ms
 	short decayMod = 0;
 	bool autoDecayMod = true;
+	shared uint switchSourceEvery = 0;
 	// argument parsing
 	for (int i=0; i<args.length; i++)
 	{
@@ -153,12 +152,14 @@ int main(string[] args)
 			writeln(`POSIX console 'Doom fire' as described by Fabien Sanglard.
 Read here: http://fabiensanglard.net/doom_fire_psx/
 Options:
-  --speed, -s :  Set target simulation speed (default: 15 ticks/s)
-  --decay, -d :  Adjust decay rate of temperature (can be negative)
-                 By default, dynamic value depending on window size
+  --speed, -s <n> : Set target simulation speed (default: 15 ticks/s)
+  --decay, -d <n> : Adjust decay rate of temperature (can be negative)
+                    By default, dynamic value depending on window size
+  --flip,  -f <n> : Flip the source on and off every <n> seconds
+
 Switches:
-  --debug     :  Output debug info to stderr
-  --help,  -h :  Display this help`);
+  --debug     :  Output debug info (while running) to stderr
+  --help,  -h :  Display this help and exit`);
 			return 0;
 		}
 		if (args[i] == "--speed" || args[i] == "-s")
@@ -170,6 +171,11 @@ Switches:
 		{
 			autoDecayMod = false;
 			decayMod = to!short(args[i+1]);
+			i++;
+		}
+		if (args[i] == "--flip" || args[i] == "-f")
+		{
+			switchSourceEvery = abs(to!int(args[i+1]));
 			i++;
 		}
 		
@@ -209,16 +215,15 @@ Switches:
 
 	
 	shared bool keepSourceGoing = true;
-	
-	auto listenToStdinThread = new Thread({
-		stdinFP = stdin.getFP();
-		while(!gotSigint && !stdin.eof()) {
-			stdin.rawRead(new char[1]);
-			atomicOp!"^="(keepSourceGoing,true);
-		}
-		//stdin.close();
-	}).start();
-	
+	if (switchSourceEvery > 0)
+	{
+		auto switchSourceThread = new Thread({
+			while(!gotSigint) {
+				Thread.sleep(dur!"seconds"(switchSourceEvery));
+				atomicOp!"^="(keepSourceGoing, true);
+			}
+		}).start();
+	}
 	
 	// avoid getWindowSize() on the main thread
 	auto windowSizeThread = new Thread({
@@ -253,7 +258,7 @@ Switches:
 		if (MonoTime.currTime >= nextUpdate)
 		{
 			nextUpdate+=dur!("msecs")(timeslice);
-			updateCanvas(canvas, area, true, decayMod, autoDecayMod);
+			updateCanvas(canvas, area, keepSourceGoing, decayMod, autoDecayMod);
 		}
 		renderCanvas(canvas, area);
 	}
