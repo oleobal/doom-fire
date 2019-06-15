@@ -56,12 +56,15 @@ Dimensions getWindowSize()
 
 
 
-
-void updateCanvas(ref Canvas canvas, Dimensions area, bool keepSourceGoing, int decayMod)
+/**
+ * decayMod may be null, in which case the decay modifier is
+ * adjusted depending on area.lines
+ */
+void updateCanvas(ref Canvas canvas, Dimensions area, bool keepSourceGoing, int decayMod, bool autoDecayMod)
 {
 	bugMsg("updateCanvas ", canvas.length, " ", canvas[0].length, "-", canvas[canvas.length-1].length, " ", area);
 	
-	
+	// enlarge canvas (never reduce)
 	if (canvas.length < area.lines)
 	{
 		canvas.length = area.lines;
@@ -72,14 +75,25 @@ void updateCanvas(ref Canvas canvas, Dimensions area, bool keepSourceGoing, int 
 			canvas[l].length = max(canvas[0].length, area.cols);
 	}
 	
+	
+	// calculate decayMod
+	if (autoDecayMod)
+	{
+		if (area.lines > 45)
+			decayMod = -1;
+		else if (area.lines < 20 && area.lines >= 10)
+			decayMod = 1;
+		else if (area.lines < 10)
+			decayMod = 2;
+	}
 
-
+	// last line is white
 	if (keepSourceGoing)
 		canvas[canvas.length-1][] = temperatures.length-1;
 	else
 		canvas[canvas.length-1][] = 0;
 	
-
+	// calculate new state
 	for (int l=0 ; l<canvas.length-1;l++)
 	{
 		for (int c=0 ; c<canvas[l].length;c++)
@@ -115,6 +129,7 @@ int main(string[] args)
 {
 	short timeslice = 66; // in ms
 	short decayMod = 0;
+	bool autoDecayMod = true;
 	// argument parsing
 	for (int i=0; i<args.length; i++)
 	{
@@ -123,10 +138,9 @@ int main(string[] args)
 			writeln(`POSIX console 'Doom fire' as described by Fabien Sanglard.
 Read here: http://fabiensanglard.net/doom_fire_psx/
 Options:
-  --speed, -s :  Set target simulation speed (default: 15 ticks per second)
+  --speed, -s :  Set target simulation speed (default: 15 ticks/s)
   --decay, -d :  Adjust decay rate of temperature (can be negative)
-                 By default, it is changed depending on window size
-                 (TO BE IMPLEMENTED)
+                 By default, dynamic value depending on window size
 Switches:
   --debug     :  Output debug info to stderr
   --help,  -h :  Display this help`);
@@ -139,6 +153,7 @@ Switches:
 		}
 		if (args[i] == "--decay" || args[i] == "-d")
 		{
+			autoDecayMod = false;
 			decayMod = to!short(args[i+1]);
 			i++;
 		}
@@ -212,7 +227,7 @@ Switches:
 		if (MonoTime.currTime >= nextUpdate)
 		{
 			nextUpdate+=dur!("msecs")(timeslice);
-			updateCanvas(canvas, area, true, decayMod);
+			updateCanvas(canvas, area, true, decayMod, autoDecayMod);
 		}
 		renderCanvas(canvas, area);
 	}
