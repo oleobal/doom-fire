@@ -2,6 +2,7 @@ import std.stdio;
 import std.conv;
 import std.typecons;
 import std.process;
+import std.math;
 import std.random;
 Random rnd;
 import std.algorithm.comparison;
@@ -79,12 +80,20 @@ void updateCanvas(ref Canvas canvas, Dimensions area, bool keepSourceGoing, int 
 	// calculate decayMod
 	if (autoDecayMod)
 	{
-		if (area.lines > 45)
-			decayMod = -1;
-		else if (area.lines < 20 && area.lines >= 10)
-			decayMod = 1;
-		else if (area.lines < 10)
-			decayMod = 2;
+		decayMod=to!int(round(area.lines*(-0.15)+6.5));
+		bugMsg("updateCanvas/autoDecayCalc ", area.lines, " -> ", decayMod);
+	}
+	
+	auto decays = [0, 0, 1, 2];
+	if (decayMod < 0)
+		decays.length = decays.length+abs(decayMod); // add zeroes
+	else if (decayMod > 0)
+	{
+		auto oldLength = decays.length;
+		decays.length+=decayMod;
+		for (ulong i =oldLength; i < decays.length; i++)
+			decays[i]=1+(i%3);
+		//alternate adding 1 and 2 and 3
 	}
 
 	// last line is white
@@ -98,10 +107,15 @@ void updateCanvas(ref Canvas canvas, Dimensions area, bool keepSourceGoing, int 
 	{
 		for (int c=0 ; c<canvas[l].length;c++)
 		{
+			auto direction = [-1, 0, 0, 0, 0, 0, 0, 0, 1].choice(rnd);
 			canvas[l][c] = to!ubyte(clamp(
-				canvas[l+1][c]
-				- uniform(max(0+decayMod, 0), max(3+decayMod, 2), rnd),
-			0, temperatures.length-1));
+					canvas[l+1][clamp(c+direction, 0, canvas[l].length-1)]
+					
+					//- uniform(max(0+decayMod, 0), max(3+decayMod, 2), rnd),
+					- decays.choice(rnd),
+					
+					0, temperatures.length-1
+				));
 		}
 	}
 	
