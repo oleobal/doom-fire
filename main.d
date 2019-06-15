@@ -57,7 +57,7 @@ Dimensions getWindowSize()
 
 
 
-void updateCanvas(Canvas canvas, Dimensions area, bool keepSourceGoing, int decayMod)
+void updateCanvas(ref Canvas canvas, Dimensions area, bool keepSourceGoing, int decayMod)
 {
 	bugMsg("updateCanvas ", canvas.length, " ", canvas[0].length, "-", canvas[canvas.length-1].length, " ", area);
 	
