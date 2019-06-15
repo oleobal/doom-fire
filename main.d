@@ -232,8 +232,6 @@ Switches:
 			if (d != dims)
 				//atomicStore(dims, d); // my code is radioactive
 				// OK so the above doesn't work.
-				// Why ?
-				// No. Fucking. Clue.
 				// maybe cause Tuple is a pointer type ? Idk.
 				// https://www.mail-archive.com/digitalmars-d-bugs@puremagic.com/msg75050.html
 				
