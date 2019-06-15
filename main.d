@@ -58,23 +58,39 @@ Dimensions getWindowSize()
 
 void updateCanvas(Canvas canvas, Dimensions area, bool keepSourceGoing, int decayMod)
 {
-	// TODO check for window resizes
+	bugMsg("updateCanvas ", canvas.length, " ", canvas[0].length, "-", canvas[canvas.length-1].length, " ", area);
+	
+	
+	if (canvas.length < area.lines)
+	{
+		canvas.length = area.lines;
+	}
+	for (int l=0;l<canvas.length;l++)
+	{
+		if (canvas[l].length < max(canvas[0].length, area.cols))
+			canvas[l].length = max(canvas[0].length, area.cols);
+	}
+	
+
+	for (int c=0 ; c<area.cols;c++)
+	{
+		if (keepSourceGoing)
+			canvas[canvas.length-1][c] = temperatures.length-1;
+		else
+			canvas[canvas.length-1][c] = temperatures[0];
+	}
 	
 	for (int l=0 ; l<canvas.length-1;l++)
 	{
 		for (int c=0 ; c<canvas[l].length;c++)
 		{
 			canvas[l][c] = to!ubyte(clamp(
-				canvas[l+1][c] - uniform(max(0+decayMod, 0), max(3+decayMod, 2), rnd),
+				canvas[l+1][c]
+				- uniform(max(0+decayMod, 0), max(3+decayMod, 2), rnd),
 			0, temperatures.length-1));
 		}
 	}
 	
-	for (int c=0 ; c<canvas[canvas.length-1].length;c++)
-	{
-		if (keepSourceGoing)
-			canvas[canvas.length-1][c] = temperatures.length-1;
-	}
 }
 
 
@@ -167,12 +183,13 @@ Switches:
 	auto nextUpdate = MonoTime.currTime;
 	while (!gotSigint)
 	{
+		auto area = getWindowSize();
 		if (MonoTime.currTime >= nextUpdate)
 		{
 			nextUpdate+=dur!("msecs")(66); // 16 FPS
-			updateCanvas(canvas, true, decayMod);
+			updateCanvas(canvas, area, true, decayMod);
 		}
-		renderCanvas(canvas, getWindowSize());
+		renderCanvas(canvas, area);
 	}
 	
 	write(Keys.terminator,Keys.cursorAt(0,0), Keys.cursorNormal, Keys.alternateScreenOff);
