@@ -123,15 +123,16 @@ void main(string[] args)
 			writeln(`POSIX console 'Doom fire' as described by Fabien Sanglard.
 Read here: http://fabiensanglard.net/doom_fire_psx/
 Options:
-  --fps,   -f :  Set target FPS (default: 16)
+  --speed, -s :  Set target simulation speed (default: 15 ticks per second)
   --decay, -d :  Adjust decay rate of temperature (can be negative)
                  By default, it is changed depending on window size
+                 (TO BE IMPLEMENTED)
 Switches:
-  --debug,    :  Output debug info to stderr
+  --debug     :  Output debug info to stderr
   --help,  -h :  Display this help`);
 			return;
 		}
-		if (args[i] == "--fps" || args[i] == "-f")
+		if (args[i] == "--speed" || args[i] == "-s")
 		{
 			timeslice = 1000/to!short(args[i+1]);
 			i++;
@@ -186,7 +187,7 @@ Switches:
 		auto area = getWindowSize();
 		if (MonoTime.currTime >= nextUpdate)
 		{
-			nextUpdate+=dur!("msecs")(66); // 16 FPS
+			nextUpdate+=dur!("msecs")(timeslice);
 			updateCanvas(canvas, area, true, decayMod);
 		}
 		renderCanvas(canvas, area);
