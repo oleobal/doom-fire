@@ -14,6 +14,7 @@ Compile: `dmd main.d escapes.d -of=doom-fire`
 
 Get help: `./doom-fire --help`
 
-Run: `./doom-fire`
+Run: `./doom-fire` in a terminal with 256 colors.
 
-Compiling with LDC and GDC doesn't work,
+Compiling with LDC and GDC doesn't work, but there shouldn't be big problems
+against them either, I just didn't take the time to solve them.

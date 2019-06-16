@@ -127,14 +127,17 @@ void renderCanvas(Canvas canvas, Dimensions area)
 	int offset = max(0, to!int(canvas.length)-to!int(area.lines));
 	bugMsg("renderCanvas ",canvas.length, " ", area.lines, " ", offset);
 	
+	string result = "";
+	
 	for (int l=0 ;l+offset<canvas.length;l++)
 	{
-		write(Keys.cursorAt(to!short(l),to!short(0)));
+		result~=Keys.cursorAt(to!short(l),to!short(0));
 		for (int c=0 ; c<canvas[l+offset].length && c<area.cols;c++)
 		{
-			write(Keys.colorBG[temperatures[canvas[l+offset][c]]]~" "~Keys.terminator);
+			result~=Keys.colorBG[temperatures[canvas[l+offset][c]]]~" "~Keys.terminator;
 		}
 	}
+	write(result);
 }
 
 
@@ -189,8 +192,17 @@ Switches:
 	// take a wild guess as to how much attention signal handling got
 	// in the stdlib :)
 	
-	Keys.discover();
+	
 	signal(SIGINT, &handleSigint);
+	try
+	{
+		Keys.discover();
+	}
+	catch (Exception e)
+	{
+		stderr.writeln(e.msg);
+		return 1;
+	}
 	
 	rnd = Random(unpredictableSeed);
 	
@@ -228,18 +240,26 @@ Switches:
 	// avoid getWindowSize() on the main thread
 	auto windowSizeThread = new Thread({
 		while(!gotSigint) {
-			Dimensions d = getWindowSize();
-			if (d != dims)
-				//atomicStore(dims, d); // my code is radioactive
-				// OK so the above doesn't work.
-				// maybe cause Tuple is a pointer type ? Idk.
-				// https://www.mail-archive.com/digitalmars-d-bugs@puremagic.com/msg75050.html
-				
-				// it's not really a problem though, I don't need atomic
-				// operations, simply because this thread is the only
-				// one writing on this piece of data.
-				atomicStore(dims.lines, d.lines);
-				atomicStore(dims.cols, d.cols);
+			try
+			{
+				Dimensions d = getWindowSize();
+			
+				if (d != dims)
+					//atomicStore(dims, d); // my code is radioactive
+					/+
+					 + OK so the above doesn't work.
+					 + maybe cause Tuple is a pointer type ? Idk.
+					 + https://www.mail-archive.com/digitalmars-d-bugs@puremagic.com/msg75050.html
+					 +
+					 + it's not really a problem though;
+					 + I don't need atomic operations, simply because
+					 + this thread is the only one writing on 'dims'.
+					 +/
+					atomicStore(dims.lines, d.lines);
+					atomicStore(dims.cols, d.cols);
+			}
+			catch (ConvException e)
+			{ /+ silence the exception +/ break; }
 		}
 	}).start();
 	
