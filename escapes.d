@@ -49,8 +49,13 @@ struct Keys
 		 */
 		void discover()
 		{
+			
 			alternateScreenOn = callTput("smcup");
 			alternateScreenOff = callTput("rmcup");
+			
+			
+			if (to!int(callTput("colors")) < 256)
+				throw new Exception("Your terminal does not support 256 colors !");
 			
 			colorFG = getColorEscapes(0,colorFG.length, "f");
 			colorBG = getColorEscapes(0,colorBG.length, "b");
