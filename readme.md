@@ -6,7 +6,8 @@ A POSIX terminal implementation of (more or less) the PSX Doom fire,
 ![Animated demo](demo.gif)
 
 It should handle resizes just fine. Simulation speed is easy to vary,
-rendering is the bottleneck.
+rendering is the bottleneck. Still, don't trust the GIF, it's a lot
+smoother in person.
 
 ### Usage
 
