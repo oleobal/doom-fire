@@ -5,6 +5,7 @@ import std.process;
 import std.math;
 import std.random;
 Random rnd;
+import std.container : DList;
 import std.algorithm.comparison;
 import std.concurrency;
 import core.thread;
@@ -34,6 +35,30 @@ alias Dimensions=Tuple!(int, "cols", int, "lines");
 
 // (handpicked) terminal colors, from coldest to warmest
 ubyte[16] temperatures = [ 0, 52, 88, 124, 196, 202, 215, 220, 222, 226, 227, 228, 229, 230, 195, 231 ];
+
+
+/**
+ * take a queue of events (from earliest to latest)
+ * and returns the average number of such events per second
+ */
+long avgEventsPerSecond(DList!MonoTime times)
+{
+	auto nt = times.dup();
+    MonoTime start = nt.front();
+    nt.removeFront();
+
+    Duration total = dur!("seconds")(0);
+    long elements = 0;
+
+    while (!nt.empty())
+    {
+        total = total + (nt.front() - start) ;
+        nt.removeFront();
+        elements++;
+    }
+
+    return dur!("seconds")(1)/(total/elements);
+}
 
 
 Dimensions getWindowSize()
@@ -121,11 +146,11 @@ void updateCanvas(ref Canvas canvas, Dimensions area, bool keepSourceGoing, int 
 }
 
 
-void renderCanvas(Canvas canvas, Dimensions area)
+void renderCanvas(Canvas canvas, Dimensions area, string topLeft="")
 {
 	
 	int offset = max(0, to!int(canvas.length)-to!int(area.lines));
-	bugMsg("renderCanvas ",canvas.length, " ", area.lines, " ", offset);
+	bugMsg("renderCanvas ",canvas.length, " ", area.lines, " ", offset, " | ",topLeft);
 	
 	string result = "";
 	
@@ -134,6 +159,14 @@ void renderCanvas(Canvas canvas, Dimensions area)
 		result~=Keys.cursorAt(to!short(l),to!short(0));
 		for (int c=0 ; c<canvas[l+offset].length && c<area.cols;c++)
 		{
+			if (l==0)
+			{
+				if (c<topLeft.length)
+				{
+					result~=Keys.colorBG[temperatures[canvas[l+offset][c]]]~Keys.colorFG[2]~topLeft[c]~Keys.terminator;
+					continue;
+				}
+			}
 			result~=Keys.colorBG[temperatures[canvas[l+offset][c]]]~" "~Keys.terminator;
 		}
 	}
@@ -147,6 +180,7 @@ int main(string[] args)
 	short decayMod = 0;
 	bool autoDecayMod = true;
 	shared uint switchSourceEvery = 0;
+	bool displayFPScounter = false;
 	// argument parsing
 	for (int i=0; i<args.length; i++)
 	{
@@ -161,8 +195,9 @@ Options:
   --flip,  -f <n> : Flip the source on and off every <n> seconds
 
 Switches:
-  --debug     :  Output debug info (while running) to stderr
-  --help,  -h :  Display this help and exit`);
+  --fps-counter : Displays a frames per second counter in the top left
+  --debug       : Output debug info (while running) to stderr
+  --help,  -h   : Display this help and exit`);
 			return 0;
 		}
 		if (args[i] == "--speed" || args[i] == "-s")
@@ -184,6 +219,8 @@ Switches:
 		
 		if (args[i] == "--debug")
 			bugMode = true;
+		if (args[i] == "--fps-counter")
+			displayFPScounter = true;
 	}
 	
 	
@@ -263,22 +300,41 @@ Switches:
 		}
 	}).start();
 	
-	// http://fabiensanglard.net/timer_and_framerate/
-	
-	
-	
-	auto nextUpdate = MonoTime.currTime;
+
 	/// keeps the window size consistent within a loop
 	Dimensions area;
+	
+	auto times = DList!MonoTime(
+			MonoTime.currTime, MonoTime.currTime,
+			MonoTime.currTime, MonoTime.currTime,
+			MonoTime.currTime, MonoTime.currTime,
+			MonoTime.currTime, MonoTime.currTime,
+			MonoTime.currTime, MonoTime.currTime,
+			MonoTime.currTime, MonoTime.currTime,
+			MonoTime.currTime, MonoTime.currTime,
+			MonoTime.currTime, MonoTime.currTime,
+			MonoTime.currTime, MonoTime.currTime,
+			MonoTime.currTime, MonoTime.currTime);
+	auto nextUpdate = MonoTime.currTime;
 	while (!gotSigint)
 	{
-		area = dims;
+		area.lines = dims.lines;
+		area.cols = dims.cols;
 		if (MonoTime.currTime >= nextUpdate)
 		{
 			nextUpdate+=dur!("msecs")(timeslice);
 			updateCanvas(canvas, area, keepSourceGoing, decayMod, autoDecayMod);
 		}
-		renderCanvas(canvas, area);
+		
+		if (displayFPScounter)
+		{
+			times.insertBack(MonoTime.currTime);
+			times.removeFront();
+			renderCanvas(canvas, area, to!string(avgEventsPerSecond(times)));
+		}
+		else
+			renderCanvas(canvas, area);
+
 	}
 	
 	write(Keys.terminator,Keys.cursorAt(0,0), Keys.cursorNormal, Keys.alternateScreenOff);
